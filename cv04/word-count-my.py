@@ -18,8 +18,8 @@ for word, count in top20Words:
     print(f"{word} {count}")
 
 # Bonus
-with open('articles-small.json', 'r', encoding='utf-8') as file:
-    articles = json.load(file)
+with open('/files/small.jsonl', 'r', encoding='utf-8') as file:
+    articles = [json.loads(line) for line in file]
 
 words = sc.parallelize([article['content'] for article in articles])
 filteredWords = words.flatMap(normalizeWords).filter(lambda x: len(x) >= 6)
