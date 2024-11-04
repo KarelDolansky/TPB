@@ -155,12 +155,34 @@ def get_articles_count_by_category_2022():
     results = collection.aggregate(pipeline)
     for result in results:
         print(f"Kategorie: {result['_id']}, Počet článků: {result['count']}")
+        
+def remove_articles_older_than_2020():
+    """Odstraní články s datem publikace starším než rok 2020."""
+    # Zjistěte, kolik článků splňuje podmínku
+    count = collection.count_documents({
+        'publication_date': {
+            '$lt': '2020-01-01'
+        }
+    })
+    print(f"Počet článků, které budou odstraněny: {count}")
+
+    result = collection.delete_many({
+        'publication_date': {
+            '$lt': '2020-01-01'
+        }
+    })
+    print(f"Odstraněno {result.deleted_count} článků publikovaných před rokem 2020")
+
+
+
 
 if __name__ == '__main__':
     # Zkontrolujte, zda kolekce není prázdná
     if collection.count_documents({}) == 0:
         print("Kolekce je prázdná.")
         exit()
+    # Zavolání funkce pro odstranění článků
+    remove_articles_older_than_2020()
 
     # Shromáždění dat článků
     dates, lengths, categories, comments = gather_article_data()
