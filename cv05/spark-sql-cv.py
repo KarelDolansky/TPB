@@ -1,21 +1,19 @@
 from pyspark.sql import SparkSession
 from pyspark.sql.functions import avg
 
-# Vytvoření SparkSession
-spark = SparkSession.builder.master("spark://fa367db42f31:7077").appName("SparkSQL").getOrCreate()
+spark = SparkSession.builder.master("local").appName("SparkSQL").getOrCreate()
 
-# Načtení CSV souboru s hlavičkou a inferencí schématu
-people = spark.read.option("header", "true").option("inferSchema", "true").csv("/files/fakefriends-header.csv")
+people = spark.read.option("header", "true").option("inferSchema", "true").csv("./fakefriends-header.csv")
 
-# Výpis schématu
-print("Here is our inferred schema:")
-people.printSchema()
+people.createOrReplaceTempView("people")
 
-# Výpočet průměrného počtu přátel podle věku
-average_friends_by_age = people.groupBy("age").agg(avg("friends").alias("friends_avg")).orderBy("age")
+result = spark.sql("""
+    SELECT age, ROUND(AVG(friends), 2) AS friends_avg
+    FROM people
+    GROUP BY age
+    ORDER BY age
+""")
 
-# Výpis výsledků
-average_friends_by_age.show()
+result.show()
 
-# Ukončení SparkSession
 spark.stop()

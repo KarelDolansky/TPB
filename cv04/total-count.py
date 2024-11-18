@@ -10,7 +10,7 @@ def parseLine(line):
     price = float(fields[2])
     return (customerId, itemId, price)
 
-lines = sc.textFile("/files/customer-orders.csv")
+lines = sc.textFile("./customer-orders.csv")
 parsedLines = lines.map(parseLine)
 
 customerSpendings = parsedLines.map(lambda x: (x[0], x[2])).reduceByKey(lambda x, y: x + y)

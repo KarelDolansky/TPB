@@ -5,7 +5,7 @@ conf = SparkConf().setMaster("spark://fa367db42f31:7077").setAppName("RatingsHis
 # conf = SparkConf().setMaster("local").setAppName("RatingsHistogram")
 sc = SparkContext(conf = conf)
 
-lines = sc.textFile("/files/ml-100k/u.data")
+lines = sc.textFile("./ml-100k/u.data")
 ratings = lines.map(lambda x: x.split()[2])
 result = ratings.countByValue()
 
