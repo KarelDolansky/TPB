@@ -22,7 +22,7 @@ arr = ["Year","Month","DayofMonth","DayOfWeek","CRSDepTime","CRSArrTime","Unique
 
 
 
-spark = SparkSession.builder.appName("FlightDelayPrediction").getOrCreate()
+spark = SparkSession.builder.appName("cv02").getOrCreate()
 
 file_paths = ["1987.csv", "1988.csv", "1989.csv"]
 datas = [spark.read.option("header", "true").csv(fp, inferSchema=True) for fp in file_paths]
@@ -69,13 +69,13 @@ evaluator = MulticlassClassificationEvaluator(
 )
 
 accuracy = evaluator.evaluate(predictions)
-print(f"Logistic Regression Accuracy: {accuracy}")
+print(accuracy)
 
-if accuracy < 1:
+if accuracy < 0.55:
     gbt_classifier = MultilayerPerceptronClassifier(featuresCol="features", labelCol="label", maxIter=50,seed=42, layers=[11, 5, 4, 2])
     gbt_classifier_model = gbt_classifier.fit(train_data)
     predictions = gbt_classifier_model.transform(test_data)
     accuracy = evaluator.evaluate(predictions)
-    print(f"Random Forest Accuracy: {accuracy}")
+    print(accuracy)
 
 spark.stop()
