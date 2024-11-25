@@ -1,56 +1,81 @@
 from pyspark.sql import SparkSession
 from pyspark.sql.functions import col, when
-from pyspark.ml.feature import VectorAssembler, StringIndexer
-from pyspark.ml.classification import LogisticRegression
+from pyspark.sql.types import DoubleType, IntegerType
 from pyspark.ml import Pipeline
+from pyspark.ml.feature import StringIndexer, VectorAssembler
+from pyspark.ml.classification import LogisticRegression, MultilayerPerceptronClassifier
+from pyspark.ml.evaluation import MulticlassClassificationEvaluator
 
-# Inicializace SparkSession
+
+spark = (
+    SparkSession.builder.appName("FlightDelayPrediction")
+    .config("spark.executor.memory", "1g")
+    .config("spark.driver.memory", "1g")
+    .config("spark.memory.fraction", "0.8")
+    .getOrCreate()
+)
+
+
+arr = ["Year","Month","DayofMonth","DayOfWeek","CRSDepTime","CRSArrTime","UniqueCarrier_index",
+       "CRSElapsedTime","Origin_index","Dest_index","Distance",
+]
+
+
+
 spark = SparkSession.builder.appName("FlightDelayPrediction").getOrCreate()
 
-# Načtení dat ze souborů CSV
-file_paths = ["1987.csv", "1988.csv", "1989.csv"]  # Cesty k datům
-dfs = [spark.read.option("header", "true").csv(fp, inferSchema=True) for fp in file_paths]
-data = dfs[0]
-for df in dfs[1:]:
-    data = data.union(df)
+file_paths = ["1987.csv", "1988.csv", "1989.csv"]
+datas = [spark.read.option("header", "true").csv(fp, inferSchema=True) for fp in file_paths]
+data = datas[0]
+for data in datas[1:]:
+    data = data.union(data)
 
-# Filtrace zrušených letů a odstranění chybějících hodnot
 data = data.filter((col("Cancelled") == 0) & (col("ArrDelay").isNotNull()))
 
-# Příprava cílové proměnné (zpoždění jako binární label)
 data = data.withColumn("label", when(col("ArrDelay") > 0, 1).otherwise(0))
 
-# Převod textových sloupců na číselné pomocí StringIndexer
-origin_indexer = StringIndexer(inputCol="Origin", outputCol="OriginIndexed")
-dest_indexer = StringIndexer(inputCol="Dest", outputCol="DestIndexed")
+data = data.withColumn("CRSElapsedTime", col("CRSElapsedTime").cast(IntegerType()))
 
-# Přetypování sloupce Distance na číselný typ
-data = data.withColumn("Distance", col("Distance").cast("double"))
+data = data.withColumn("Distance", col("Distance").cast(DoubleType()))
 
-# Výběr relevantních příznaků
-features = ['Year', 'Month', 'DayofMonth', 'DayOfWeek', 'CRSDepTime', 'CRSArrTime', 
-            'CRSElapsedTime', 'OriginIndexed', 'DestIndexed', 'Distance']
-assembler = VectorAssembler(inputCols=features, outputCol="features")
+stages = []
+stages.append(StringIndexer(inputCol="UniqueCarrier", outputCol="UniqueCarrier_index", handleInvalid="skip").fit(data))
+stages.append(StringIndexer(inputCol="Origin", outputCol="Origin_index", handleInvalid="skip").fit(data))
+stages.append(StringIndexer(inputCol="Dest", outputCol="Dest_index", handleInvalid="skip").fit(data))
 
-# Model logistické regrese
-lr = LogisticRegression(featuresCol="features", labelCol="label")
 
-# Pipeline
-pipeline = Pipeline(stages=[origin_indexer, dest_indexer, assembler, lr])
 
-# Rozdělení dat na trénovací a testovací sady
-train_data, test_data = data.randomSplit([0.8, 0.2], seed=42)
+pipeline = Pipeline(stages=stages)
 
-# Trénování modelu
-model = pipeline.fit(train_data)
+data = pipeline.fit(data).transform(data)
 
-# Predikce na testovacích datech
-predictions = model.transform(test_data)
+data = data.repartition(100)
 
-# Vyhodnocení modelu
-predictions.select("label", "prediction", "probability").show()
+assembler = VectorAssembler(
+    inputCols=arr,
+    outputCol="features",
+    handleInvalid="skip",
+)
 
-from pyspark.ml.evaluation import BinaryClassificationEvaluator
-evaluator = BinaryClassificationEvaluator(labelCol="label", metricName="areaUnderROC")
-roc_auc = evaluator.evaluate(predictions)
-print(f"ROC AUC: {roc_auc}")
+data = assembler.transform(data)
+train_data, test_data = data.randomSplit([0.9, 0.1], seed=42)
+
+logistic_regression = LogisticRegression(featuresCol="features", labelCol="label")
+logistic_regression_model = logistic_regression.fit(train_data)
+predictions = logistic_regression_model.transform(test_data)
+
+evaluator = MulticlassClassificationEvaluator(
+    labelCol="label", predictionCol="prediction", metricName="accuracy"
+)
+
+accuracy = evaluator.evaluate(predictions)
+print(f"Logistic Regression Accuracy: {accuracy}")
+
+if accuracy < 1:
+    gbt_classifier = MultilayerPerceptronClassifier(featuresCol="features", labelCol="label", maxIter=50,seed=42, layers=[11, 5, 4, 2])
+    gbt_classifier_model = gbt_classifier.fit(train_data)
+    predictions = gbt_classifier_model.transform(test_data)
+    accuracy = evaluator.evaluate(predictions)
+    print(f"Random Forest Accuracy: {accuracy}")
+
+spark.stop()
