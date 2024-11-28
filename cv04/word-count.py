@@ -4,7 +4,7 @@ conf = SparkConf().setMaster("spark://fa367db42f31:7077").setAppName("WordCount"
 # conf = SparkConf().setMaster("local").setAppName("WordCount")
 sc = SparkContext(conf = conf)
 
-input = sc.textFile("/files/book.txt")
+input = sc.textFile("./book.txt")
 words = input.flatMap(lambda x: x.split())
 wordCounts = words.countByValue()
 

@@ -8,7 +8,7 @@ sc = SparkContext(conf = conf)
 def normalizeWords(text):
     return re.findall(r'\b\w+\b', text.lower())
 
-input = sc.textFile("/files/book.txt")
+input = sc.textFile("./book.txt")
 words = input.flatMap(normalizeWords)
 wordCounts = words.map(lambda x: (x, 1)).reduceByKey(lambda x, y: x + y)
 sortedWordCounts = wordCounts.sortBy(lambda x: x[1], ascending=False)
@@ -18,7 +18,7 @@ for word, count in top20Words:
     print(f"{word} {count}")
 
 # Bonus
-with open('/files/small.jsonl', 'r', encoding='utf-8') as file:
+with open('./small.jsonl', 'r', encoding='utf-8') as file:
     articles = [json.loads(line) for line in file]
 
 words = sc.parallelize([article['content'] for article in articles])

@@ -1,2 +1,2 @@
-**/scraped_articles.jsonl
-**/small.jsonl
+*.jsonl
+*.csv
