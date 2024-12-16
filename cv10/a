@@ -1,0 +1,61 @@
+-- 1
+MATCH (n)
+RETURN n
+LIMIT 10;
+
+-- 2
+MATCH (m:Movie)
+RETURN m.title AS Film
+LIMIT 10;
+
+-- 3
+MATCH (p:Person)-[:ACTED_IN]->(m:Movie {title: "The Matrix"})
+RETURN p.name AS Actor
+ORDER BY p.name;
+
+-- 4
+MATCH (p:Person {name: "Keanu Reeves"})-[:ACTED_IN]->(m:Movie)
+RETURN m.title AS Movie;
+
+-- 5
+MATCH (p:Person {name: "Keanu Reeves"})-[:ACTED_IN]->(m:Movie)
+RETURN COUNT(m) AS CountM;
+
+-- 6
+MATCH (p1:Person {name: "Keanu Reeves"})-[:ACTED_IN]->(m:Movie)<-[:ACTED_IN]-(p2:Person {name: "Carrie-Anne Moss"})
+RETURN m.title AS Movie;
+
+-- 7 
+MERGE (m:Movie {title: "John Wick"})
+MERGE (p:Person {name: "Keanu Reeves"})
+MERGE (p)-[:ACTED_IN]->(m);
+
+-- 8
+MATCH (p:Person {name: "Keanu Reeves"})
+SET p.lalla = "lalal"
+RETURN p;
+--------------------------------- BONUS ----------------------------------
+-- 1
+MATCH (actor:Person)-[role:ACTED_IN]->(movie:Movie)
+WHERE role.earnings IS NOT NULL
+RETURN avg(role.earnings) AS avgE
+
+-- 2
+MATCH (:Person {name: "Tom Hanks"})-[:HAS_CONTACT]-(c:Person)-[r:ACTED_IN]->(:Movie)
+WHERE c.born >= 1960 AND r.earnings >= 10000000
+RETURN c.name AS ContactName, c.born AS BirthYear, r.earnings AS Earnings
+ORDER BY Earnings DESC
+
+-- 3
+MATCH (p:Person)-[r:ACTED_IN]->(:Movie)
+WITH p, SUM(r.earnings) AS TotalEarnings
+WHERE TotalEarnings > 50000000
+SET p:Rich
+RETURN p.name AS RichActor, TotalEarnings
+
+-- 4
+MATCH (keanu:Person {name: "Keanu Reeves"}), (movie:Movie {title: "Top Gun"})
+MERGE (keanu)-[viewed:VIEWED]->(movie)
+ON CREATE SET viewed.count = 1
+ON MATCH SET viewed.count = viewed.count + 1
+RETURN keanu.name AS Viewer, movie.title AS Movie, viewed.count AS ViewCount

@@ -1,0 +1,91 @@
+
+services:
+  zookeeper:
+    image: confluentinc/cp-zookeeper:7.5.0
+    container_name: zookeeper
+    environment:
+      ZOOKEEPER_CLIENT_PORT: 2181
+    ports:
+      - "2181:2181"
+    deploy:
+      resources:
+        limits:
+          memory: 512m    # Maximální RAM (např. 512 MB)
+        reservations:
+          memory: 256m    # Minimální rezervovaná RAM (např. 256 MB)
+    mem_limit: 512m        # Maximální fyzická paměť
+    memswap_limit: 1g      # RAM + swap (např. 1 GB)
+
+  kafka:
+    build: ./kafka
+    container_name: kafka
+    depends_on:
+      - zookeeper
+    user: root
+    environment:
+      KAFKA_BROKER_ID: 1
+      KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092
+      KAFKA_LISTENERS: PLAINTEXT://0.0.0.0:9092
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_DELETE_TOPIC_ENABLE: "true"
+    ports:
+      - "9092:9092"
+    volumes:
+      - ".:/files:rw"
+    command: ["bash", "-c", "/etc/confluent/docker/run & /files/kafka/start-stream.sh"]
+    deploy:
+      resources:
+        limits:
+          memory: 512m    # Maximální RAM (např. 512 MB)
+        reservations:
+          memory: 256m    # Minimální rezervovaná RAM (např. 256 MB)
+    mem_limit: 512m        # Maximální fyzická paměť
+    memswap_limit: 1g      # RAM + swap (např. 1 GB)
+
+  jobmanager:
+    build: ./flink
+    container_name: jobmanager
+    ports:
+      - "8081:8081"
+      - "9999:9999"
+    command: jobmanager
+    environment:
+      - |
+        FLINK_PROPERTIES=
+        jobmanager.rpc.address: jobmanager  
+    volumes:
+      - ".:/files:rw"
+    depends_on:
+      - kafka
+    deploy:
+      resources:
+        limits:
+          memory: 512m    # Maximální RAM (např. 512 MB)
+        reservations:
+          memory: 256m    # Minimální rezervovaná RAM (např. 256 MB)
+    mem_limit: 512m        # Maximální fyzická paměť
+    memswap_limit: 1g      # RAM + swap (např. 1 GB)
+
+  taskmanager:
+    build: ./flink
+    depends_on:
+      - jobmanager
+    command: taskmanager
+    deploy:
+        replicas: 2
+    environment:
+      - |
+        FLINK_PROPERTIES=
+        jobmanager.rpc.address: jobmanager
+        taskmanager.numberOfTaskSlots: 2 
+    volumes:
+      - ".:/files:rw"
+    deploy:
+      resources:
+        limits:
+          memory: 512m    # Maximální RAM (např. 512 MB)
+        reservations:
+          memory: 256m    # Minimální rezervovaná RAM (např. 256 MB)
+    mem_limit: 512m        # Maximální fyzická paměť
+    memswap_limit: 1g      # RAM + swap (např. 1 GB)

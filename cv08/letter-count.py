@@ -2,7 +2,7 @@ import argparse
 import logging
 import sys
 
-from pyflink.common import WatermarkStrategy, Encoder, Types
+from pyflink.common import WatermarkStrategy, Encoder, Types,Duration 
 from pyflink.datastream import StreamExecutionEnvironment, RuntimeExecutionMode
 from pyflink.datastream.connectors import (FileSource, StreamFormat, FileSink, OutputFileConfig,
                                            RollingPolicy)
@@ -47,16 +47,17 @@ word_count_data = ["To be, or not to be,--that is the question:--",
 
 def word_count(input_path, output_path):
     env = StreamExecutionEnvironment.get_execution_environment()
-    env.set_runtime_mode(RuntimeExecutionMode.BATCH)
-    # write all the data to one file
-    env.set_parallelism(1)
+    env.set_runtime_mode(RuntimeExecutionMode.STREAMING)
+    env.set_parallelism(1)  # Výstup do jednoho souboru
 
-    # define the source
     if input_path is not None:
+        # Definice zdroje se sledováním nových souborů
         ds = env.from_source(
-            source=FileSource.for_record_stream_format(StreamFormat.text_line_format(),
-                                                       input_path)
-                             .process_static_file_set().build(),
+            source=FileSource.for_record_stream_format(
+                StreamFormat.text_line_format(), input_path
+            )
+            .monitor_continuously(Duration.of_millis(1000))  # Použití Duration
+            .build(),
             watermark_strategy=WatermarkStrategy.for_monotonous_timestamps(),
             source_name="file_source"
         )
@@ -65,26 +66,29 @@ def word_count(input_path, output_path):
         print("Use --input to specify file input.")
         ds = env.from_collection(word_count_data)
 
-    def split(line):
-        yield from line.split()
+    def split_and_filter(line):
+        for word in line.split():
+            filtered_word = ''.join(filter(str.isalpha, word[0])).lower()
+            if filtered_word:
+                yield filtered_word
 
-    # compute word count
-    ds = ds.flat_map(split) \
-        .map(lambda i: (i, 1), output_type=Types.TUPLE([Types.STRING(), Types.INT()])) \
+    ds = ds.flat_map(split_and_filter) \
+        .map(lambda word: (word, 1), output_type=Types.TUPLE([Types.STRING(), Types.INT()])) \
         .key_by(lambda i: i[0]) \
         .reduce(lambda i, j: (i[0], i[1] + j[1]))
 
-    # define the sink
     if output_path is not None:
         ds.sink_to(
             sink=FileSink.for_row_format(
                 base_path=output_path,
-                encoder=Encoder.simple_string_encoder())
+                encoder=Encoder.simple_string_encoder()
+            )
             .with_output_file_config(
                 OutputFileConfig.builder()
-                .with_part_prefix("prefix")
-                .with_part_suffix(".ext")
-                .build())
+                .with_part_prefix("result")
+                .with_part_suffix(".txt")
+                .build()
+            )
             .with_rolling_policy(RollingPolicy.default_rolling_policy())
             .build()
         )
@@ -92,9 +96,8 @@ def word_count(input_path, output_path):
         print("Printing result to stdout. Use --output to specify output path.")
         ds.print()
 
-    # submit for execution
-    env.execute()
-
+    # Spuštění úlohy
+    env.execute("Streaming Word Count")
 
 if __name__ == '__main__':
     logging.basicConfig(stream=sys.stdout, level=logging.INFO, format="%(message)s")

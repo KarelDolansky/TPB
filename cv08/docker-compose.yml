@@ -10,7 +10,7 @@ services:
         FLINK_PROPERTIES=
         jobmanager.rpc.address: jobmanager  
     volumes:
-      - ".:/files:rw"
+      - "..:/files:rw"
 
   taskmanager:
     image: pyflink:latest
@@ -25,4 +25,4 @@ services:
         jobmanager.rpc.address: jobmanager
         taskmanager.numberOfTaskSlots: 2 
     volumes:
-      - ".:/files:rw"
+      - "..:/files:rw"

@@ -1,9 +1,9 @@
 # Definujte cestu k původnímu a novému souboru
 input_file = "scraped_articles.jsonl"  # Nahraďte názvem vašeho JSONL souboru
-output_file = "small.jsonl"
+output_file = "50_records.jsonl"
 
 # Nastavte požadovaný počet záznamů
-max_records = 20000
+max_records = 50000
 
 # Načtěte prvních 20000 řádků a uložte je do nového souboru
 with open(input_file, "r") as infile, open(output_file, "w") as outfile:

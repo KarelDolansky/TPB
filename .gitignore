@@ -1,2 +1,5 @@
 *.jsonl
 *.csv
+*.json
+**/output.log
+cv08/output.log
